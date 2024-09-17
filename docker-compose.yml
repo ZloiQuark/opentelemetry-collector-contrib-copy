@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  otel-collector:
+    container_name: otel-collector
+    build: 
+      context: https://github.com/ZloiQuark/opentelemetry-collector-contrib-copy.git#main
+      dockerfile: Dockerfile
+    # image: cb.artifact.finam.ru/official/otel/opentelemetry-collector-contrib:0.96.0
+    command: ["--config", "/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - /var/log/docker/otel-col:/var/log/otel-col
+    ports:
+      - "4317" # OTLP gRPC
+      - "4318" # OTLP HTTP
+      - "55680:55680" # zPages
+    logging:
+      driver: "local"
+      options:
+        max-size: "10m"
+        max-file: "3"

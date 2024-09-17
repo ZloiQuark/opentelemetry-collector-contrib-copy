@@ -1,0 +1,73 @@
+receivers:
+  otlp:
+    protocols:
+      grpc: # включение протокола gRPC
+        endpoint: 0.0.0.0:4317
+      http: # включение протокола HTTP
+        endpoint: 0.0.0.0:4318
+ 
+processors:
+  batch: # обеспечивает пакетную отправку данных
+    send_batch_size: 100000   # размер пакета для отправки
+    timeout: 5s               # тайм-аут отправки данных
+  memory_limiter: # ограничитель использования памяти
+    check_interval: 2s       # интервал проверки использования памяти
+    limit_mib: 1800          # лимит использования памяти в МБ
+    spike_limit_mib: 500     # лимит мгновенного использования памяти в МБ
+  resource: # добавляет или обновляет атрибуты ресурса
+    attributes:
+      - key: service.env
+        value: test
+        action: insert
+      - key: service.is
+        value: lpbt01
+        action: insert
+      - key: service.shard
+        value: mssharduat
+        action: insert
+      - key: host.name
+        value: msa-lpbt01-ap01.office.finam.ru  #сервер на котором стоит коллектор
+        action: upsert
+ 
+exporters:
+  clickhouse:
+    endpoint: tcp://msa-teld01-ch02.office.finam.ru:9000,msk-teld01-ch02.office.finam.ru:9000?database=fotel&compress=lz4 # адреса ClickHouse серверов
+    create_schema: false
+    database: "fotel"               # имя базы данных
+    logs_table_name: otel_logs      # имя таблицы для логов
+    traces_table_name: otel_traces  # имя таблицы для трассировок
+    metrics_table_name: otel_metrics # имя таблицы для метрик
+    username: lpbt01_lpb_ch          # имя пользователя
+    password: ELYjnazGZ6DuU24M      # пароль
+    ttl: 0                          # время жизни данных
+    timeout: 10s                    # время ожидания перед повторной попыткой отправки данных
+    sending_queue:
+      queue_size: 100               # размер очереди отправки
+    retry_on_failure:
+      enabled: true                 # включение повторных попыток отправки данных
+      initial_interval: 5s          # начальный интервал между попытками
+      max_interval: 30s             # максимальный интервал между попытками
+      max_elapsed_time: 300s        # максимальное общее время попыток
+ 
+extensions:
+  health_check:    # расширение для проверки здоровья
+  pprof:           # расширение для профилирования
+  zpages:          # расширение для создания страниц с состояниями
+  memory_ballast:  # расширение для управления памятью
+    size_mib: 1000 # размер в МБ балласта памяти
+ 
+service:
+  extensions: [pprof, zpages, health_check] # список используемых расширений
+  pipelines:
+    traces:   # пайплайн для трассировок
+      receivers: [otlp]                   # ресиверы
+      processors: [memory_limiter, resource, batch] # процессоры
+      exporters: [clickhouse]             # экспортеры
+    metrics:  # пайплайн для метрик
+      receivers: [otlp]                   # ресиверы
+      processors: [memory_limiter, resource, batch] # процессоры
+      exporters: [clickhouse]             # экспортеры
+    logs:     # пайплайн для логов
+      receivers: [otlp]                   # ресиверы
+      processors: [memory_limiter, resource, batch] # процессоры
+      exporters: [clickhouse]             # экспортеры
